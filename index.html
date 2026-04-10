@@ -109,6 +109,8 @@ body{font-family:var(--font-body);background:var(--bg);color:var(--text);font-si
 .tbl-clear{background:none;border:none;color:var(--faint);font-size:11px;cursor:pointer;text-decoration:underline;padding:0 4px}
 .tbl-clear:hover{color:var(--danger)}
 .tbl-hint{font-size:10px;color:var(--faint);margin-left:auto;white-space:nowrap}
+.btn-export{display:inline-flex;align-items:center;gap:5px;background:var(--ok);color:#fff;border:none;font-family:var(--font-head);font-size:11px;font-weight:800;letter-spacing:.05em;padding:5px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:background .15s;white-space:nowrap}
+.btn-export:hover{background:#085e38}
 .table-scroll{overflow-x:auto;max-height:600px;overflow-y:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
 thead th{background:var(--navy-pale);padding:9px 13px;text-align:left;font-size:10px;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;font-weight:700;position:sticky;top:0;z-index:10;white-space:nowrap;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .15s}
@@ -179,7 +181,7 @@ td.num-cell{text-align:right;font-variant-numeric:tabular-nums}
 <div id="uploadPage" class="page active">
 <div class="upload-hero">
 <h2>Weekly Procurement<br><span>Report Generator</span></h2>
-<p>Drop your project Excel files below each week. The dashboard generates instantly in your browser — no server, no login, no data leaves your device.</p>
+<p>Drop your project Excel files below. The dashboard generates instantly in your browser — no server, no login, no data leaves your device.</p>
 </div>
 <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
 <span class="upload-icon">📂</span>
@@ -210,7 +212,10 @@ td.num-cell{text-align:right;font-variant-numeric:tabular-nums}
 </select></div>
 <div class="ctrl-grp"><span class="ctrl-label">Category</span>
 <select id="fCategory" class="ctrl-select" onchange="applyFilters()">
-<option value="all">All Categories</option><option>Subcontract</option><option>Subcontractor</option><option>Supply</option><option>Provisional Sum</option>
+<option value="all">All Categories</option>
+<option>Subcontractor</option>
+<option>Supply</option>
+<option>Provisional Sum</option>
 </select></div>
 <div class="ctrl-right"><span class="ctrl-count" id="dashCount"></span><button class="btn-reupload" onclick="showUpload()">📂 Upload New Week</button></div>
 </div>
@@ -222,16 +227,51 @@ td.num-cell{text-align:right;font-variant-numeric:tabular-nums}
 <div class="chart-card"><h3>Avg LPO / Award Variance by Project</h3><p>Days between planned and actual award date</p><div class="chart-wrap"><canvas id="cLpo"></canvas></div></div>
 <div class="chart-card"><h3>Planned vs Actual Duration</h3><p>Avg days DTP to Award — completed packages only</p><div class="chart-wrap"><canvas id="cDur"></canvas></div></div>
 </div>
+<!-- SIDE-BY-SIDE: DTPs Awaited + LOA Dates TBC -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div class="table-card">
+<div class="table-head-bar" style="background:linear-gradient(90deg,#8B0000,#C0001A)">
+<div><h3>⏰ DTPs Awaited</h3><p>Planned DTP overdue or due within 7 days — not yet received</p></div>
+<div class="tbl-badge" id="dtpAwaitBadge">0</div>
+</div>
+<div class="table-scroll" style="max-height:340px">
+<table id="dtpAwaitTable"><thead><tr>
+<th onclick="sortMini('dtpAwait','code',this)">Code<span class="sort-icon"></span></th>
+<th onclick="sortMini('dtpAwait','sl_no',this)">#<span class="sort-icon"></span></th>
+<th onclick="sortMini('dtpAwait','work_package',this)">Work Package<span class="sort-icon"></span></th>
+<th onclick="sortMini('dtpAwait','planned_dtp',this)">Planned DTP<span class="sort-icon"></span></th>
+<th onclick="sortMini('dtpAwait','dtp_variance',this)" class="num-cell">Variance vs Today<span class="sort-icon"></span></th>
+</tr></thead><tbody id="dtpAwaitBody"></tbody></table>
+</div>
+</div>
+<div class="table-card">
+<div class="table-head-bar" style="background:linear-gradient(90deg,#4A148C,#7B3FC0)">
+<div><h3>❓ LOA Dates TBC</h3><p>Work packages with no planned award date recorded</p></div>
+<div class="tbl-badge" id="loaTbcBadge">0</div>
+</div>
+<div class="table-scroll" style="max-height:340px">
+<table id="loaTbcTable"><thead><tr>
+<th onclick="sortMini('loaTbc','code',this)">Code<span class="sort-icon"></span></th>
+<th onclick="sortMini('loaTbc','sl_no',this)">#<span class="sort-icon"></span></th>
+<th onclick="sortMini('loaTbc','work_package',this)">Work Package<span class="sort-icon"></span></th>
+<th onclick="sortMini('loaTbc','status',this)">Status<span class="sort-icon"></span></th>
+<th onclick="sortMini('loaTbc','manager',this)">Manager<span class="sort-icon"></span></th>
+</tr></thead><tbody id="loaTbcBody"></tbody></table>
+</div>
+</div>
+</div>
 <!-- TABLE 1: Full Overview -->
 <div class="table-card">
 <div class="table-head-bar"><div><h3>Full Work Package Overview</h3><p>All procurement metrics — filters above apply simultaneously</p></div><div class="tbl-badge" id="tblBadge">0 packages</div></div>
 <div class="tbl-toolbar">
 <input class="tbl-search" id="tblSearch" placeholder="🔍 Search work package or manager…" oninput="renderTable()">
-<span class="tbl-hint">Use dropdowns above to filter · Click column headers to sort</span>
+<span class="tbl-hint">Use dropdowns above to filter · Click headers to sort</span>
 <button class="tbl-clear" onclick="document.getElementById('tblSearch').value='';renderTable()">Clear</button>
+<button class="btn-export" onclick="exportTableToExcel('mainTable','WP_Overview')">⬇ Export Excel</button>
 </div>
 <div class="table-scroll"><table id="mainTable"><thead><tr>
-<th onclick="sortBy('sl_no',this)" style="width:42px">#<span class="sort-icon"></span></th>
+<th onclick="sortBy('code',this)" style="width:72px">Code<span class="sort-icon"></span></th>
+<th onclick="sortBy('sl_no',this)" style="width:40px">#<span class="sort-icon"></span></th>
 <th onclick="sortBy('work_package',this)">Work Package<span class="sort-icon"></span></th>
 <th onclick="sortBy('status',this)">Status<span class="sort-icon"></span></th>
 <th onclick="sortBy('planned_dtp',this)">Planned DTP<span class="sort-icon"></span></th>
@@ -240,44 +280,59 @@ td.num-cell{text-align:right;font-variant-numeric:tabular-nums}
 <th onclick="sortBy('planned_lpo',this)">Planned Award<span class="sort-icon"></span></th>
 <th onclick="sortBy('actual_lpo',this)">Actual Award<span class="sort-icon"></span></th>
 <th onclick="sortBy('lpo_variance',this)" class="num-cell">Award Variance<span class="sort-icon"></span></th>
-<th onclick="sortBy('planned_duration',this)" class="num-cell">Planned Duration<span class="sort-icon"></span></th>
-<th onclick="sortBy('actual_duration',this)" class="num-cell">Actual Duration<span class="sort-icon"></span></th>
-<th onclick="sortBy('dur_variance',this)" class="num-cell">Duration Variance<span class="sort-icon"></span></th>
+<th onclick="sortBy('planned_duration',this)" class="num-cell">Planned Dur<span class="sort-icon"></span></th>
+<th onclick="sortBy('actual_duration',this)" class="num-cell">Actual Dur<span class="sort-icon"></span></th>
+<th onclick="sortBy('dur_variance',this)" class="num-cell">Dur Variance<span class="sort-icon"></span></th>
 </tr></thead><tbody id="mainBody"></tbody></table></div>
 </div>
 <!-- TABLE 2: Delay -->
 <div class="table-card">
-<div class="table-head-bar"><div><h3>⚠️ Work Packages in Delay</h3><p>Completed packages where actual duration exceeded planned — every step shown with planned vs actual</p></div><div class="tbl-badge" id="delayBadge">0 packages</div></div>
+<div class="table-head-bar"><div><h3>⚠️ Work Packages in Delay</h3><p>Completed packages where actual duration exceeded planned — Plan / Actual / Variance / Trend per step</p></div><div class="tbl-badge" id="delayBadge">0 packages</div></div>
 <div class="tbl-toolbar">
 <input class="tbl-search" id="delaySearch" placeholder="🔍 Search work package or manager…" oninput="renderDelayTable()">
-<span class="tbl-hint">Packages with actual award date where actual duration exceeds planned · Click headers to sort</span>
+<span class="tbl-hint">↑ delay worsened · ↓ delay improved · → unchanged</span>
 <button class="tbl-clear" onclick="document.getElementById('delaySearch').value='';renderDelayTable()">Clear</button>
+<button class="btn-export" onclick="exportTableToExcel('delayTable','WP_Delay')">⬇ Export Excel</button>
 </div>
-<div class="table-scroll" style="max-height:520px"><table id="delayTable" style="min-width:2800px"><thead>
+<div class="table-scroll" style="max-height:520px"><table id="delayTable" style="min-width:4200px"><thead>
 <tr>
-<th rowspan="2" onclick="sortDelay('project',this)">Project<span class="sort-icon"></span></th>
-<th rowspan="2" onclick="sortDelay('sl_no',this)" style="width:42px">#<span class="sort-icon"></span></th>
+<th rowspan="2" onclick="sortDelay('code',this)" style="width:72px">Code<span class="sort-icon"></span></th>
+<th rowspan="2" onclick="sortDelay('sl_no',this)" style="width:40px">#<span class="sort-icon"></span></th>
 <th rowspan="2" onclick="sortDelay('work_package',this)" style="min-width:170px">Work Package<span class="sort-icon"></span></th>
 <th rowspan="2" onclick="sortDelay('status',this)">Status<span class="sort-icon"></span></th>
-<th colspan="2" class="step-grp-hdr">DTP Received</th><th colspan="2" class="step-grp-hdr">STP Created</th>
-<th colspan="2" class="step-grp-hdr">Float RFPs</th><th colspan="2" class="step-grp-hdr">TQ Process</th>
-<th colspan="2" class="step-grp-hdr">TQs Closed</th><th colspan="2" class="step-grp-hdr">Initial Proposals</th>
-<th colspan="2" class="step-grp-hdr">Initial Bid Tab</th><th colspan="2" class="step-grp-hdr">PTC Process</th>
-<th colspan="2" class="step-grp-hdr">PTC Closed</th><th colspan="2" class="step-grp-hdr">LAFO Received</th>
-<th colspan="2" class="step-grp-hdr">Final Bid Tab</th><th colspan="2" class="step-grp-hdr">TRF Created</th>
-<th colspan="2" class="step-grp-hdr">OBT Upload</th><th colspan="2" class="step-grp-hdr">LPO / Award</th>
+<th colspan="4" class="step-grp-hdr">DTP Received</th>
+<th colspan="4" class="step-grp-hdr">STP Created</th>
+<th colspan="4" class="step-grp-hdr">Float RFPs</th>
+<th colspan="4" class="step-grp-hdr">TQ Process</th>
+<th colspan="4" class="step-grp-hdr">TQs Closed</th>
+<th colspan="4" class="step-grp-hdr">Initial Proposals</th>
+<th colspan="4" class="step-grp-hdr">Initial Bid Tab</th>
+<th colspan="4" class="step-grp-hdr">PTC Process</th>
+<th colspan="4" class="step-grp-hdr">PTC Closed</th>
+<th colspan="4" class="step-grp-hdr">LAFO Received</th>
+<th colspan="4" class="step-grp-hdr">Final Bid Tab</th>
+<th colspan="4" class="step-grp-hdr">TRF Created</th>
+<th colspan="4" class="step-grp-hdr">OBT Upload</th>
+<th colspan="4" class="step-grp-hdr">LPO / Award</th>
 <th rowspan="2" onclick="sortDelay('planned_duration',this)" class="num-cell total-hdr">Plan<br>Dur<span class="sort-icon"></span></th>
 <th rowspan="2" onclick="sortDelay('actual_duration',this)" class="num-cell total-hdr">Act<br>Dur<span class="sort-icon"></span></th>
 <th rowspan="2" onclick="sortDelay('dur_variance',this)" class="num-cell total-hdr">Var<span class="sort-icon"></span></th>
 </tr>
 <tr>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
-<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
+<th class="sub-hdr">Plan</th><th class="sub-hdr">Actual</th><th class="sub-hdr">Var</th><th class="sub-hdr" style="font-size:9px">+/-</th>
 </tr>
 </thead><tbody id="delayBody"></tbody></table></div>
 </div>
@@ -289,25 +344,26 @@ td.num-cell{text-align:right;font-variant-numeric:tabular-nums}
 <select class="tbl-sel" id="riskProjFilter" onchange="renderRiskTable()"><option value="all">All Projects</option></select>
 <span class="tbl-hint">Excludes: no actual DTP · fully awarded · Sorted worst first</span>
 <button class="tbl-clear" onclick="document.getElementById('riskSearch').value='';document.getElementById('riskProjFilter').value='all';renderRiskTable()">Clear</button>
+<button class="btn-export" onclick="exportTableToExcel('riskTable','Key_Risks')">⬇ Export Excel</button>
 </div>
 <div class="table-scroll" style="max-height:520px"><table id="riskTable"><thead><tr>
-<th onclick="sortRisk('project',this)">Project<span class="sort-icon"></span></th>
-<th onclick="sortRisk('sl_no',this)" style="width:42px">#<span class="sort-icon"></span></th>
+<th onclick="sortRisk('code',this)" style="width:72px">Code<span class="sort-icon"></span></th>
+<th onclick="sortRisk('sl_no',this)" style="width:40px">#<span class="sort-icon"></span></th>
 <th onclick="sortRisk('work_package',this)" style="min-width:170px">Work Package<span class="sort-icon"></span></th>
 <th onclick="sortRisk('status',this)">Status<span class="sort-icon"></span></th>
 <th onclick="sortRisk('manager',this)">Manager<span class="sort-icon"></span></th>
 <th onclick="sortRisk('actual_dtp',this)">DTP Received</th>
-<th onclick="sortRisk('last_action_name',this)">Last Step Completed<span class="sort-icon"></span></th>
-<th onclick="sortRisk('last_action_date',this)">Date of Last Action<span class="sort-icon"></span></th>
-<th onclick="sortRisk('days_since_action',this)" class="num-cell">Days Since Action<span class="sort-icon"></span></th>
+<th onclick="sortRisk('last_action_name',this)">Last Step<span class="sort-icon"></span></th>
+<th onclick="sortRisk('last_action_date',this)">Last Action Date<span class="sort-icon"></span></th>
+<th onclick="sortRisk('days_since_action',this)" class="num-cell">Days Since<span class="sort-icon"></span></th>
 <th onclick="sortRisk('planned_lpo',this)">Planned Award<span class="sort-icon"></span></th>
-<th onclick="sortRisk('lpo_days_overdue',this)" class="num-cell">Award Overdue<span class="sort-icon"></span></th>
+<th onclick="sortRisk('lpo_days_overdue',this)" class="num-cell">Overdue<span class="sort-icon"></span></th>
 </tr></thead><tbody id="riskBody"></tbody></table></div>
 </div>
 <!-- TABLE 4: Projected Award -->
 <div class="table-card">
 <div class="table-head-bar">
-<div><h3>📅 Projected Award Dates</h3><p>All unawarded packages — estimated award date calculated from TODAY plus planned durations of remaining steps</p></div>
+<div><h3>📅 Projected Award Dates</h3><p>All unawarded packages — TODAY plus planned durations of remaining steps</p></div>
 <div class="tbl-badge" id="projBadge">0 packages</div>
 </div>
 <div class="tbl-toolbar">
@@ -316,17 +372,18 @@ td.num-cell{text-align:right;font-variant-numeric:tabular-nums}
 <select class="tbl-sel" id="projStatusFilter" onchange="renderProjTable()">
 <option value="all">All Statuses</option><option>Awaiting DTP</option><option>DTP Received</option><option>Out To Tender</option><option>Commercial Review</option><option>PTC Stage</option><option>Final Negotiations</option><option>OBT Ongoing</option>
 </select>
-<span class="tbl-hint">All unawarded packages · Sorted by earliest projected award · Click headers to sort</span>
+<span class="tbl-hint">All unawarded packages · Sorted earliest first</span>
 <button class="tbl-clear" onclick="document.getElementById('projSearch').value='';document.getElementById('projProjFilter').value='all';document.getElementById('projStatusFilter').value='all';renderProjTable()">Clear</button>
+<button class="btn-export" onclick="exportTableToExcel('projTable','Projected_Award')">⬇ Export Excel</button>
 </div>
 <div class="table-scroll" style="max-height:600px">
 <table id="projTable"><thead><tr>
-<th onclick="sortProj('project',this)">Project<span class="sort-icon"></span></th>
-<th onclick="sortProj('sl_no',this)" style="width:42px">#<span class="sort-icon"></span></th>
+<th onclick="sortProj('code',this)" style="width:72px">Code<span class="sort-icon"></span></th>
+<th onclick="sortProj('sl_no',this)" style="width:40px">#<span class="sort-icon"></span></th>
 <th onclick="sortProj('work_package',this)" style="min-width:180px">Work Package<span class="sort-icon"></span></th>
 <th onclick="sortProj('status',this)">Status<span class="sort-icon"></span></th>
 <th onclick="sortProj('manager',this)">Manager<span class="sort-icon"></span></th>
-<th onclick="sortProj('last_action_name',this)">Last Step Completed<span class="sort-icon"></span></th>
+<th onclick="sortProj('last_action_name',this)">Last Step<span class="sort-icon"></span></th>
 <th onclick="sortProj('actual_dtp',this)">Actual DTP<span class="sort-icon"></span></th>
 <th onclick="sortProj('planned_lpo',this)">Planned Award<span class="sort-icon"></span></th>
 <th onclick="sortProj('projected_award_date',this)">📅 Projected Award<span class="sort-icon"></span></th>
@@ -374,6 +431,7 @@ const STEPS=[
 const COLOR_PALETTE=['#003B7A','#C0001A','#0A7A4B','#D06A00','#7B3FC0','#00829A','#C49B00','#1A72CC','#8B6914','#5B21A0','#0057B3','#AD1457','#00695C','#BF360C','#1565C0','#558B2F','#4A148C','#006064'];
 let PROJ_ORDER=[],PROJ_SHORT={},PROJ_COLORS={},_colorIdx=0;
 let ALL_DATA=[],CHARTS={},SORT={col:null,dir:1},DELAY_SORT={col:null,dir:1},RISK_SORT={col:null,dir:1},PROJ_SORT={col:null,dir:1},pendingFiles=[];
+const MINI_SORT={dtpAwait:{col:null,dir:1},loaTbc:{col:null,dir:1}};
 function registerProject(name){if(PROJ_ORDER.includes(name))return;PROJ_ORDER.push(name);PROJ_SHORT[name]=name.length>13?name.slice(0,12)+'…':name;PROJ_COLORS[name]=COLOR_PALETTE[_colorIdx%COLOR_PALETTE.length];_colorIdx++}
 function extractNameFromFilename(fn){const base=fn.replace(/\.(xlsm|xlsx)$/i,'');let m=base.match(/^AD?\d{4}[_\s]+(.+?)(?:[_\s]+-[_\s]+Procurement|[_\s]+-[_\s]+Dashboard|$)/i);if(m)return m[1].replace(/_/g,' ').trim();m=base.match(/^\d{4}[_\s]+(.+?)(?:[_\s]+-[_\s]+Procurement|$)/i);if(m)return m[1].replace(/_/g,' ').trim();return base.replace(/^AD?\d{4}[_\s]*/i,'').replace(/_/g,' ').trim()||base.slice(0,25)}
 function showUpload(){document.getElementById('uploadPage').classList.add('active');document.getElementById('dashPage').classList.remove('active');document.getElementById('navBadge').style.display='none'}
@@ -433,7 +491,7 @@ if(isInt&&entryType==='planned'){
 const wp=row[iWP]?String(row[iWP]).trim():`WP-${slNo}`;
 currentKey=`${slNo}_${wp}`;
 packages[currentKey]={
-project:projectName,code:code||'????',sl_no:Number(slNo),
+project:projectName,code:code?`AD${code}`:'????',sl_no:Number(slNo),
 category:row[iCat]?String(row[iCat]).trim():'',
 work_package:wp,ref:row[iRef]?String(row[iRef]).trim():'',
 manager:row[iMgr]?String(row[iMgr]).trim():'',
@@ -460,14 +518,12 @@ return Object.values(packages).map(p=>{
 const pd=p.planned_dtp,ad=p.actual_dtp,pl=p.planned_lpo,al=p.actual_lpo;
 const dtp_variance=(pd&&ad)?diffDays(pd,ad):(pd?diffDays(pd,TODAY):null);
 const dtp_variance_issued=(pd&&ad)?diffDays(pd,ad):null;
-const dtp_used_today=pd&&!ad;
 const lpo_variance=(pl&&al)?diffDays(pl,al):null;
 const planned_duration=(pd&&pl)?diffDays(pd,pl):null;
 const actual_duration=(ad&&al)?diffDays(ad,al):null;
 const dur_variance=(actual_duration!=null&&planned_duration!=null)?actual_duration-planned_duration:null;
 const days_since_action=p.last_action_date?diffDays(p.last_action_date,TODAY):null;
 const lpo_days_overdue=(pl&&!al)?diffDays(pl,TODAY):null;
-// Projected Award Date: TODAY + planned durations of all remaining steps
 let projected_award_date=null;
 if(!al&&p.steps_planned_dur){
 let lastActualStepIdx=-1;
@@ -477,11 +533,9 @@ if(nextStepIdx<STEPS.length-1){
 let proj=new Date(TODAY);
 for(let i=nextStepIdx;i<STEPS.length-1;i++){const dur=p.steps_planned_dur[i];if(dur!=null&&dur>0)proj=new Date(proj.getTime()+dur*86400000)}
 projected_award_date=proj;
-} else if(nextStepIdx===STEPS.length-1){
-projected_award_date=new Date(TODAY);
+} else if(nextStepIdx===STEPS.length-1){projected_award_date=new Date(TODAY)}
 }
-}
-return{...p,dtp_variance,dtp_variance_issued,dtp_used_today,lpo_variance,planned_duration,actual_duration,dur_variance,days_since_action,lpo_days_overdue,projected_award_date};
+return{...p,dtp_variance,dtp_variance_issued,lpo_variance,planned_duration,actual_duration,dur_variance,days_since_action,lpo_days_overdue,projected_award_date};
 });
 }
 function parseDate(val){if(val==null||val==='')return null;if(val instanceof Date)return isNaN(val)?null:val;if(typeof val==='number'){if(val>1000&&val<100000){const d=new Date(Math.round((val-25569)*86400000));return isNaN(d)?null:d}return null}if(typeof val==='string'){const s=val.trim();if(!s)return null;if(/^\d{4}-\d{2}-\d{2}/.test(s)){const d=new Date(s.slice(0,10));return isNaN(d)?null:d}if(/^\d{1,2}\/\d{1,2}\/\d{4}/.test(s)){const[dd,mm,yyyy]=s.split('/');const d=new Date(+yyyy,+mm-1,+dd);return isNaN(d)?null:d}const d=new Date(s);return isNaN(d)?null:d}return null}
@@ -500,24 +554,58 @@ applyFilters();
 document.getElementById('footerL').textContent=`Dutco Construction Co. · Procurement Report · ${fmtDate(TODAY)} · `+projs.map(p=>ALL_DATA.find(d=>d.project===p)?.code||p).join(' · ');
 }
 function getFiltered(){const fp=document.getElementById('fProject').value;const fs=document.getElementById('fStatus').value;const fc=document.getElementById('fCategory').value;return ALL_DATA.filter(d=>(fp==='all'||d.project===fp)&&(fs==='all'||d.status===fs)&&(fc==='all'||d.category===fc))}
-function applyFilters(){const data=getFiltered();document.getElementById('dashCount').innerHTML=`Showing <strong>${data.length}</strong> of ${ALL_DATA.length} packages`;renderKPIs(data);renderCharts(data);renderTable();renderDelayTable();renderRiskTable();renderProjTable()}
+function applyFilters(){const data=getFiltered();document.getElementById('dashCount').innerHTML=`Showing <strong>${data.length}</strong> of ${ALL_DATA.length} packages`;renderKPIs(data);renderCharts(data);renderTable();renderDelayTable();renderRiskTable();renderProjTable();renderDtpAwait();renderLoaTbc()}
 function renderKPIs(data){const total=data.length;const awarded=data.filter(d=>d.status==='Awarded').length;const inProg=data.filter(d=>['Final Negotiations','PTC Stage','Commercial Review','Out To Tender','OBT Ongoing','DTP Received'].includes(d.status)).length;const awaiting=data.filter(d=>d.status==='Awaiting DTP').length;const lpoV=data.filter(d=>d.lpo_variance!=null).map(d=>d.lpo_variance);const avgLpo=lpoV.length?Math.round(avg(lpoV)):null;const rate=total?Math.round(awarded/total*100):0;const lpoClass=avgLpo==null?'c-navy':avgLpo>30?'c-danger':avgLpo>10?'c-warn':'c-green';document.getElementById('kpiRow').innerHTML=`<div class="kpi c-navy"><span class="kpi-ico">📋</span><div class="kpi-lbl">Total Work Packages</div><div class="kpi-val">${total}</div><div class="kpi-sub">Filtered selection</div></div><div class="kpi c-green"><span class="kpi-ico">✅</span><div class="kpi-lbl">Awarded</div><div class="kpi-val">${awarded}</div><div class="kpi-sub">${rate}% award rate</div></div><div class="kpi c-yellow"><span class="kpi-ico">⚙️</span><div class="kpi-lbl">In Progress</div><div class="kpi-val">${inProg}</div><div class="kpi-sub">Tender · Review · Negotiations</div></div><div class="kpi c-warn"><span class="kpi-ico">⏳</span><div class="kpi-lbl">Awaiting DTP</div><div class="kpi-val">${awaiting}</div><div class="kpi-sub">Not yet started</div></div><div class="kpi ${lpoClass}"><span class="kpi-ico">📅</span><div class="kpi-lbl">Avg Award Variance</div><div class="kpi-val">${avgLpo!=null?(avgLpo>0?'+':'')+avgLpo+'d':'—'}</div><div class="kpi-sub">vs planned award date</div></div>`}
 function renderCharts(data){const projs=PROJ_ORDER;const ps=projs.map(p=>PROJ_SHORT[p]||p.slice(0,12));const pc=projs.map(p=>PROJ_COLORS[p]||'#003B7A');const sc={};STATUS_ORDER.forEach(s=>{sc[s]=0});data.forEach(d=>{sc[d.status]=(sc[d.status]||0)+1});const scL=STATUS_ORDER.filter(s=>sc[s]>0);const scV=scL.map(s=>sc[s]);const scC=scL.map(s=>STATUS_COLORS[s]||'#aaa');if(CHARTS.status)CHARTS.status.destroy();CHARTS.status=new Chart(document.getElementById('cStatus'),{type:'doughnut',data:{labels:scL,datasets:[{data:scV,backgroundColor:scC,borderColor:'#fff',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#0D1F3C',font:{family:'Barlow',size:11},padding:8,boxWidth:12,generateLabels:chart=>{const ds=chart.data.datasets[0];return chart.data.labels.map((label,i)=>({text:`${label} (${ds.data[i]})`,fillStyle:ds.backgroundColor[i],strokeStyle:'#fff',lineWidth:2,hidden:false,index:i}))}}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} packages`}}}},plugins:[{id:'innerLabels',afterDatasetsDraw(chart){const{ctx}=chart;ctx.save();chart.getDatasetMeta(0).data.forEach((arc,i)=>{const val=chart.data.datasets[0].data[i];if(!val)return;const{x,y}=arc.tooltipPosition();ctx.font='bold 11px "Barlow Condensed"';ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(val,x,y)});ctx.restore()}}]});const dtpV=projs.map(p=>{const v=data.filter(d=>d.project===p&&d.actual_dtp!=null&&d.dtp_variance_issued!=null).map(d=>d.dtp_variance_issued);return v.length?Math.round(avg(v)*10)/10:null});mkBar('cDtp',ps,[{label:'Avg DTP Delay',data:dtpV,backgroundColor:pc.map(c=>c+'99'),borderColor:pc,borderWidth:2,borderRadius:4}]);const lpoV=projs.map(p=>{const v=data.filter(d=>d.project===p&&d.lpo_variance!=null).map(d=>d.lpo_variance);return v.length?Math.round(avg(v)*10)/10:null});mkBar('cLpo',ps,[{label:'Avg Award Variance',data:lpoV,backgroundColor:lpoV.map(v=>v==null?'#eee':v>0?'#C0001A99':'#0A7A4B99'),borderColor:lpoV.map(v=>v==null?'#ccc':v>0?'#C0001A':'#0A7A4B'),borderWidth:2,borderRadius:4}]);const planD=projs.map(p=>{const v=data.filter(d=>d.project===p&&d.planned_duration!=null).map(d=>d.planned_duration);return v.length?Math.round(avg(v)):null});const actD=projs.map(p=>{const v=data.filter(d=>d.project===p&&d.actual_duration!=null).map(d=>d.actual_duration);return v.length?Math.round(avg(v)):null});mkBar('cDur',ps,[{label:'Avg Planned Duration',data:planD,backgroundColor:'#003B7A55',borderColor:'#003B7A',borderWidth:2,borderRadius:4},{label:'Avg Actual Duration',data:actD,backgroundColor:'#C0001A55',borderColor:'#C0001A',borderWidth:2,borderRadius:4}],true)}
 function mkBar(id,labels,datasets,showLegend=false){if(CHARTS[id])CHARTS[id].destroy();CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:showLegend,labels:{color:'#0D1F3C',font:{family:'Barlow',size:11}}}},scales:{x:{grid:{color:'#EDF0F8'},ticks:{color:'#5A6E8C',font:{family:'Barlow',size:10}}},y:{grid:{color:'#EDF0F8'},ticks:{color:'#5A6E8C',font:{family:'Barlow',size:10}},title:{display:true,text:'Days',color:'#5A6E8C',font:{size:10}}}}}})}
-function sortBy(col,thEl){SORT.dir=SORT.col===col?SORT.dir*-1:1;SORT.col=col;document.querySelectorAll('#mainTable thead th').forEach(th=>th.classList.remove('asc','desc'));thEl.classList.add(SORT.dir===1?'asc':'desc');renderTable()}
 function applySort(rows,s){if(!s.col)return rows;const{col,dir}=s;return[...rows].sort((a,b)=>{let va=a[col],vb=b[col];if(va instanceof Date&&vb instanceof Date)return dir*(va-vb);if(va instanceof Date)return dir;if(vb instanceof Date)return-dir;if(va==null&&vb==null)return 0;if(va==null)return dir;if(vb==null)return-dir;if(typeof va==='number'&&typeof vb==='number')return dir*(va-vb);return dir*String(va).localeCompare(String(vb))})}
-function renderTable(){let rows=getFiltered();const search=document.getElementById('tblSearch').value.toLowerCase().trim();if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search)||d.project.toLowerCase().includes(search));rows=applySort(rows,SORT);document.getElementById('tblBadge').textContent=rows.length+' packages';if(!rows.length){document.getElementById('mainBody').innerHTML=`<tr class="empty-row"><td colspan="12"><span class="ei">📭</span>No matching work packages</td></tr>`;return}const dotColor=p=>PROJ_COLORS[p]||'#003B7A';document.getElementById('mainBody').innerHTML=rows.map(d=>{const dtpVarCell=d.actual_dtp?fmtVar(d.dtp_variance_issued):(d.planned_dtp?`<span class="vpos">+${diffDays(d.planned_dtp,TODAY)}d</span><span style="font-size:9px;color:var(--warn);margin-left:3px">vs today</span>`:'<span class="vna">—</span>');return`<tr><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}"><span class="proj-dot" style="background:${dotColor(d.project)}" title="${d.project}"></span>${d.work_package}</td><td>${badge(d.status)}</td><td>${fmtDate(d.planned_dtp)}</td><td>${d.actual_dtp?fmtDate(d.actual_dtp):'<span style="color:var(--warn);font-size:10px;font-weight:700">Not issued</span>'}</td><td class="num-cell">${dtpVarCell}</td><td>${fmtDate(d.planned_lpo)}</td><td>${d.actual_lpo?fmtDate(d.actual_lpo):'<span class="vna">—</span>'}</td><td class="num-cell">${fmtVar(d.lpo_variance)}</td><td class="num-cell">${d.planned_duration!=null?d.planned_duration+'d':'<span class="vna">—</span>'}</td><td class="num-cell">${fmtDur(d.actual_duration)}</td><td class="num-cell">${fmtVar(d.dur_variance)}</td></tr>`}).join('')}
+function sortBy(col,thEl){SORT.dir=SORT.col===col?SORT.dir*-1:1;SORT.col=col;document.querySelectorAll('#mainTable thead th').forEach(th=>th.classList.remove('asc','desc'));thEl.classList.add(SORT.dir===1?'asc':'desc');renderTable()}
+function renderTable(){let rows=getFiltered();const search=document.getElementById('tblSearch').value.toLowerCase().trim();if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search)||(d.code||'').toLowerCase().includes(search));rows=applySort(rows,SORT);document.getElementById('tblBadge').textContent=rows.length+' packages';if(!rows.length){document.getElementById('mainBody').innerHTML=`<tr class="empty-row"><td colspan="13"><span class="ei">📭</span>No matching work packages</td></tr>`;return}const dc=p=>PROJ_COLORS[p]||'#003B7A';document.getElementById('mainBody').innerHTML=rows.map(d=>{const dtpVar=d.actual_dtp?fmtVar(d.dtp_variance_issued):(d.planned_dtp?`<span class="vpos">+${diffDays(d.planned_dtp,TODAY)}d</span><span style="font-size:9px;color:var(--warn);margin-left:3px">vs today</span>`:'<span class="vna">—</span>');return`<tr><td><span class="proj-dot" style="background:${dc(d.project)};vertical-align:middle;margin-right:4px"></span><strong style="font-size:11px">${d.code}</strong></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td><td>${fmtDate(d.planned_dtp)}</td><td>${d.actual_dtp?fmtDate(d.actual_dtp):'<span style="color:var(--warn);font-size:10px;font-weight:700">Not issued</span>'}</td><td class="num-cell">${dtpVar}</td><td>${fmtDate(d.planned_lpo)}</td><td>${d.actual_lpo?fmtDate(d.actual_lpo):'<span class="vna">—</span>'}</td><td class="num-cell">${fmtVar(d.lpo_variance)}</td><td class="num-cell">${d.planned_duration!=null?d.planned_duration+'d':'<span class="vna">—</span>'}</td><td class="num-cell">${fmtDur(d.actual_duration)}</td><td class="num-cell">${fmtVar(d.dur_variance)}</td></tr>`}).join('')}
 function sortDelay(col,thEl){DELAY_SORT.dir=DELAY_SORT.col===col?DELAY_SORT.dir*-1:1;DELAY_SORT.col=col;document.querySelectorAll('#delayTable thead th').forEach(th=>th.classList.remove('asc','desc'));thEl.classList.add(DELAY_SORT.dir===1?'asc':'desc');renderDelayTable()}
-function renderDelayTable(){let rows=getFiltered().filter(d=>d.actual_duration!=null&&d.dur_variance!=null&&d.dur_variance>0);const search=document.getElementById('delaySearch').value.toLowerCase().trim();if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search)||d.project.toLowerCase().includes(search));rows=applySort(rows,DELAY_SORT);if(!DELAY_SORT.col)rows=[...rows].sort((a,b)=>(b.dur_variance||0)-(a.dur_variance||0));document.getElementById('delayBadge').textContent=rows.length+' packages';if(!rows.length){document.getElementById('delayBody').innerHTML=`<tr class="empty-row"><td colspan="35"><span class="ei">✅</span>No delayed packages</td></tr>`;return}document.getElementById('delayBody').innerHTML=rows.map(d=>{const stepCells=STEPS.map((s,si)=>{const plan=d.steps_planned?.[si];const act=d.steps_actual?.[si];const planStr=plan?`<span class="step-plan">${fmtDate(plan)}</span>`:'<span class="step-na">—</span>';let actStr;if(!act){actStr='<span class="step-na">—</span>'}else if(!plan){actStr=`<span class="step-actual">${fmtDate(act)}</span>`}else{const diff=diffDays(plan,act);const cls=diff>0?'late':diff<0?'early':'ontime';const tag=diff>0?`<span class="vpos" style="font-size:9px;margin-left:2px">+${diff}d</span>`:diff<0?`<span class="vneg" style="font-size:9px;margin-left:2px">${diff}d</span>`:'';actStr=`<span class="step-actual ${cls}">${fmtDate(act)}${tag}</span>`}return`<td style="border-left:1px solid #dde8f8;min-width:90px">${planStr}</td><td style="min-width:110px">${actStr}</td>`}).join('');const dotColor=PROJ_COLORS[d.project]||'#003B7A';return`<tr><td><span class="proj-dot" style="background:${dotColor}"></span><span style="font-size:11px;color:var(--muted)">${d.code}</span></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td>${stepCells}<td class="num-cell" style="border-left:2px solid #003B7A;color:var(--muted)">${d.planned_duration!=null?d.planned_duration+'d':'—'}</td><td class="num-cell" style="font-weight:700;color:var(--navy)">${d.actual_duration}d</td><td class="num-cell">${fmtVar(d.dur_variance)}</td></tr>`}).join('')}
+function renderDelayTable(){
+let rows=getFiltered().filter(d=>d.actual_duration!=null&&d.dur_variance!=null&&d.dur_variance>0);
+const search=document.getElementById('delaySearch').value.toLowerCase().trim();
+if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search));
+rows=applySort(rows,DELAY_SORT);
+if(!DELAY_SORT.col)rows=[...rows].sort((a,b)=>(b.dur_variance||0)-(a.dur_variance||0));
+document.getElementById('delayBadge').textContent=rows.length+' packages';
+if(!rows.length){document.getElementById('delayBody').innerHTML=`<tr class="empty-row"><td colspan="60"><span class="ei">✅</span>No delayed packages</td></tr>`;return}
+document.getElementById('delayBody').innerHTML=rows.map(d=>{
+const stepCells=STEPS.map((s,si)=>{
+const plan=d.steps_planned?.[si];const act=d.steps_actual?.[si];
+const planStr=plan?`<span class="step-plan">${fmtDate(plan)}</span>`:'<span class="step-na">—</span>';
+let actStr,varStr,arrowStr,variance=null;
+if(!act){actStr='<span class="step-na">—</span>'}
+else if(!plan){actStr=`<span class="step-actual">${fmtDate(act)}</span>`}
+else{const diff=diffDays(plan,act);variance=diff;const cls=diff>0?'late':diff<0?'early':'ontime';actStr=`<span class="step-actual ${cls}">${fmtDate(act)}</span>`}
+if(variance===null){varStr='<span class="step-na">—</span>'}
+else if(variance>0){varStr=`<span class="vpos">+${variance}d</span>`}
+else if(variance<0){varStr=`<span class="vneg">${variance}d</span>`}
+else{varStr='<span class="vzero">0d</span>'}
+if(si===0||variance===null){arrowStr='<span class="step-na">—</span>'}
+else{
+let prevVar=null;
+for(let pi=si-1;pi>=0;pi--){const pp=d.steps_planned?.[pi],pa=d.steps_actual?.[pi];if(pp&&pa){prevVar=diffDays(pp,pa);break}}
+if(prevVar===null)arrowStr='<span class="step-na">—</span>';
+else if(variance>prevVar)arrowStr='<span style="color:var(--danger);font-size:14px;font-weight:700" title="Delay worsened">↑</span>';
+else if(variance<prevVar)arrowStr='<span style="color:var(--ok);font-size:14px;font-weight:700" title="Delay improved">↓</span>';
+else arrowStr='<span style="color:var(--muted);font-size:12px">→</span>';
+}
+return`<td style="border-left:1px solid #dde8f8;min-width:88px">${planStr}</td><td style="min-width:100px">${actStr}</td><td class="num-cell" style="min-width:52px">${varStr}</td><td style="text-align:center;min-width:34px">${arrowStr}</td>`;
+}).join('');
+const dc=PROJ_COLORS[d.project]||'#003B7A';
+return`<tr><td><span class="proj-dot" style="background:${dc};vertical-align:middle;margin-right:4px"></span><strong style="font-size:11px">${d.code}</strong></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td>${stepCells}<td class="num-cell" style="border-left:2px solid #003B7A;color:var(--muted)">${d.planned_duration!=null?d.planned_duration+'d':'—'}</td><td class="num-cell" style="font-weight:700;color:var(--navy)">${d.actual_duration}d</td><td class="num-cell">${fmtVar(d.dur_variance)}</td></tr>`;
+}).join('');
+}
 function sortRisk(col,thEl){RISK_SORT.dir=RISK_SORT.col===col?RISK_SORT.dir*-1:1;RISK_SORT.col=col;document.querySelectorAll('#riskTable thead th').forEach(th=>th.classList.remove('asc','desc'));thEl.classList.add(RISK_SORT.dir===1?'asc':'desc');renderRiskTable()}
-function renderRiskTable(){let rows=getFiltered().filter(d=>d.actual_dtp!=null&&d.actual_lpo==null);const search=document.getElementById('riskSearch').value.toLowerCase().trim();const fproj=document.getElementById('riskProjFilter').value;if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search));if(fproj!=='all')rows=rows.filter(d=>d.project===fproj);rows=applySort(rows,RISK_SORT);if(!RISK_SORT.col)rows=[...rows].sort((a,b)=>(b.days_since_action||0)-(a.days_since_action||0));document.getElementById('riskBadge').textContent=rows.length+' packages';if(!rows.length){document.getElementById('riskBody').innerHTML=`<tr class="empty-row"><td colspan="11"><span class="ei">✅</span>No active at-risk packages</td></tr>`;return}document.getElementById('riskBody').innerHTML=rows.map(d=>{const dsa=d.days_since_action;const dsaCls=dsa==null?'':dsa>14?'days-critical':dsa>7?'days-warn':'days-ok';const dsaStr=dsa!=null?`<span class="${dsaCls}">${dsa}d</span>`:'<span class="vna">—</span>';const odo=d.lpo_days_overdue;const odoStr=odo==null?'<span class="vna">—</span>':odo>0?`<span class="overdue-cell">+${odo}d overdue</span>`:`<span class="not-overdue">${Math.abs(odo)}d remaining</span>`;const rowCls=dsa>14?'risk-high':dsa>7?'risk-med':'';const dotColor=PROJ_COLORS[d.project]||'#003B7A';return`<tr class="${rowCls}"><td><span class="proj-dot" style="background:${dotColor}"></span><span style="font-size:11px">${d.code} ${d.project}</span></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td><td style="font-size:12px">${d.manager||'—'}</td><td style="color:var(--ok);font-weight:600">${fmtDate(d.actual_dtp)}</td><td>${d.last_action_name?`<span class="last-step-pill">${d.last_action_name}</span>`:'<span class="vna">—</span>'}</td><td>${fmtDate(d.last_action_date)}</td><td class="num-cell">${dsaStr}</td><td>${fmtDate(d.planned_lpo)}</td><td class="num-cell">${odoStr}</td></tr>`}).join('')}
+function renderRiskTable(){let rows=getFiltered().filter(d=>d.actual_dtp!=null&&d.actual_lpo==null);const search=document.getElementById('riskSearch').value.toLowerCase().trim();const fproj=document.getElementById('riskProjFilter').value;if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search));if(fproj!=='all')rows=rows.filter(d=>d.project===fproj);rows=applySort(rows,RISK_SORT);if(!RISK_SORT.col)rows=[...rows].sort((a,b)=>(b.days_since_action||0)-(a.days_since_action||0));document.getElementById('riskBadge').textContent=rows.length+' packages';if(!rows.length){document.getElementById('riskBody').innerHTML=`<tr class="empty-row"><td colspan="11"><span class="ei">✅</span>No active at-risk packages</td></tr>`;return}document.getElementById('riskBody').innerHTML=rows.map(d=>{const dsa=d.days_since_action;const dsaCls=dsa==null?'':dsa>14?'days-critical':dsa>7?'days-warn':'days-ok';const dsaStr=dsa!=null?`<span class="${dsaCls}">${dsa}d</span>`:'<span class="vna">—</span>';const odo=d.lpo_days_overdue;const odoStr=odo==null?'<span class="vna">—</span>':odo>0?`<span class="overdue-cell">+${odo}d overdue</span>`:`<span class="not-overdue">${Math.abs(odo)}d remaining</span>`;const rowCls=dsa>14?'risk-high':dsa>7?'risk-med':'';const dc=PROJ_COLORS[d.project]||'#003B7A';return`<tr class="${rowCls}"><td><span class="proj-dot" style="background:${dc};vertical-align:middle;margin-right:4px"></span><strong style="font-size:11px">${d.code}</strong></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td><td style="font-size:12px">${d.manager||'—'}</td><td style="color:var(--ok);font-weight:600">${fmtDate(d.actual_dtp)}</td><td>${d.last_action_name?`<span class="last-step-pill">${d.last_action_name}</span>`:'<span class="vna">—</span>'}</td><td>${fmtDate(d.last_action_date)}</td><td class="num-cell">${dsaStr}</td><td>${fmtDate(d.planned_lpo)}</td><td class="num-cell">${odoStr}</td></tr>`}).join('')}
 function sortProj(col,thEl){PROJ_SORT.dir=PROJ_SORT.col===col?PROJ_SORT.dir*-1:1;PROJ_SORT.col=col;document.querySelectorAll('#projTable thead th').forEach(th=>th.classList.remove('asc','desc'));thEl.classList.add(PROJ_SORT.dir===1?'asc':'desc');renderProjTable()}
 function renderProjTable(){
 let rows=getFiltered().filter(d=>d.actual_lpo==null);
 const search=document.getElementById('projSearch').value.toLowerCase().trim();
 const fproj=document.getElementById('projProjFilter').value;
 const fstatus=document.getElementById('projStatusFilter').value;
-if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search)||d.project.toLowerCase().includes(search));
+if(search)rows=rows.filter(d=>d.work_package.toLowerCase().includes(search)||(d.manager||'').toLowerCase().includes(search)||(d.code||'').toLowerCase().includes(search));
 if(fproj!=='all')rows=rows.filter(d=>d.project===fproj);
 if(fstatus!=='all')rows=rows.filter(d=>d.status===fstatus);
 rows=rows.map(d=>{const pvp=(d.projected_award_date&&d.planned_lpo)?diffDays(d.planned_lpo,d.projected_award_date):null;return{...d,proj_vs_plan:pvp}});
@@ -525,33 +613,26 @@ rows=applySort(rows,PROJ_SORT);
 if(!PROJ_SORT.col)rows=[...rows].sort((a,b)=>{if(!a.projected_award_date&&!b.projected_award_date)return 0;if(!a.projected_award_date)return 1;if(!b.projected_award_date)return-1;return a.projected_award_date-b.projected_award_date});
 document.getElementById('projBadge').textContent=rows.length+' packages';
 if(!rows.length){document.getElementById('projBody').innerHTML=`<tr class="empty-row"><td colspan="10"><span class="ei">📭</span>No unawarded packages</td></tr>`;return}
-const dotColor=p=>PROJ_COLORS[p]||'#003B7A';
+const dc=p=>PROJ_COLORS[p]||'#003B7A';
 document.getElementById('projBody').innerHTML=rows.map(d=>{
 const pvp=d.proj_vs_plan;
 let projCell;
 if(!d.projected_award_date){projCell='<span class="vna">—</span>'}
-else{const projStr=fmtDate(d.projected_award_date);const daysFromToday=diffDays(TODAY,d.projected_award_date);const urgCls=daysFromToday!=null&&daysFromToday<0?'vpos':daysFromToday!=null&&daysFromToday<=14?'days-warn':'';projCell=`<span style="font-weight:700" class="${urgCls}">${projStr}</span>`}
+else{const projStr=fmtDate(d.projected_award_date);const dfn=diffDays(TODAY,d.projected_award_date);const uc=dfn!=null&&dfn<0?'vpos':dfn!=null&&dfn<=14?'days-warn':'';projCell=`<span style="font-weight:700" class="${uc}">${projStr}</span>`}
 let pvpCell;
 if(pvp==null){pvpCell='<span class="vna">—</span>'}
 else if(pvp>0){pvpCell=`<span class="vpos">+${pvp}d late</span>`}
 else if(pvp<0){pvpCell=`<span class="vneg">${Math.abs(pvp)}d early</span>`}
 else{pvpCell='<span class="vzero">On time</span>'}
-const daysFromNow=d.projected_award_date?diffDays(TODAY,d.projected_award_date):null;
-const rowCls=daysFromNow!=null&&daysFromNow<0?'risk-high':daysFromNow!=null&&daysFromNow<=14?'risk-med':'';
-return`<tr class="${rowCls}">
-<td><span class="proj-dot" style="background:${dotColor(d.project)}"></span><span style="font-size:11px">${d.code} ${d.project}</span></td>
-<td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td>
-<td class="wp-cell" title="${d.work_package}">${d.work_package}</td>
-<td>${badge(d.status)}</td>
-<td style="font-size:12px">${d.manager||'—'}</td>
-<td>${d.last_action_name?`<span class="last-step-pill">${d.last_action_name}</span>`:'<span class="vna">—</span>'}</td>
-<td style="color:var(--ok);font-weight:600">${fmtDate(d.actual_dtp)}</td>
-<td style="color:var(--muted)">${fmtDate(d.planned_lpo)}</td>
-<td>${projCell}</td>
-<td class="num-cell">${pvpCell}</td>
-</tr>`;
+const dfn=d.projected_award_date?diffDays(TODAY,d.projected_award_date):null;
+const rowCls=dfn!=null&&dfn<0?'risk-high':dfn!=null&&dfn<=14?'risk-med':'';
+return`<tr class="${rowCls}"><td><span class="proj-dot" style="background:${dc(d.project)};vertical-align:middle;margin-right:4px"></span><strong style="font-size:11px">${d.code}</strong></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td><td style="font-size:12px">${d.manager||'—'}</td><td>${d.last_action_name?`<span class="last-step-pill">${d.last_action_name}</span>`:'<span class="vna">—</span>'}</td><td style="color:var(--ok);font-weight:600">${fmtDate(d.actual_dtp)}</td><td style="color:var(--muted)">${fmtDate(d.planned_lpo)}</td><td>${projCell}</td><td class="num-cell">${pvpCell}</td></tr>`;
 }).join('');
 }
+function sortMini(table,col,thEl){const s=MINI_SORT[table];s.dir=s.col===col?s.dir*-1:1;s.col=col;const tblId=table==='dtpAwait'?'dtpAwaitTable':'loaTbcTable';document.querySelectorAll('#'+tblId+' thead th').forEach(th=>th.classList.remove('asc','desc'));thEl.classList.add(s.dir===1?'asc':'desc');if(table==='dtpAwait')renderDtpAwait();else renderLoaTbc()}
+function renderDtpAwait(){const TMS=TODAY.getTime();const S7=7*86400000;let rows=getFiltered().filter(d=>{if(d.actual_dtp!=null)return false;if(!d.planned_dtp)return false;return d.planned_dtp.getTime()-TMS<=S7});const s=MINI_SORT.dtpAwait;if(s.col){rows=[...rows].sort((a,b)=>{let va=a[s.col],vb=b[s.col];if(va instanceof Date&&vb instanceof Date)return s.dir*(va-vb);if(va==null&&vb==null)return 0;if(va==null)return s.dir;if(vb==null)return-s.dir;if(typeof va==='number'&&typeof vb==='number')return s.dir*(va-vb);return s.dir*String(va).localeCompare(String(vb))})}else{rows=[...rows].sort((a,b)=>diffDays(b.planned_dtp,TODAY)-diffDays(a.planned_dtp,TODAY))}document.getElementById('dtpAwaitBadge').textContent=rows.length;if(!rows.length){document.getElementById('dtpAwaitBody').innerHTML='<tr class="empty-row"><td colspan="5"><span class="ei">✅</span>None overdue or due soon</td></tr>';return}document.getElementById('dtpAwaitBody').innerHTML=rows.map(d=>{const v=diffDays(d.planned_dtp,TODAY);const cls=v>0?'vpos':v===0?'vzero':'days-warn';const lbl=v>0?`+${v}d overdue`:v===0?'Due today':`Due in ${Math.abs(v)}d`;return`<tr><td><span class="proj-dot" style="background:${PROJ_COLORS[d.project]||'#003B7A'};vertical-align:middle;margin-right:4px"></span><strong style="font-size:11px">${d.code}</strong></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${fmtDate(d.planned_dtp)}</td><td class="num-cell"><span class="${cls}">${lbl}</span></td></tr>`}).join('')}
+function renderLoaTbc(){let rows=getFiltered().filter(d=>d.planned_lpo==null&&d.actual_lpo==null);const s=MINI_SORT.loaTbc;if(s.col){rows=[...rows].sort((a,b)=>{let va=a[s.col],vb=b[s.col];if(va instanceof Date&&vb instanceof Date)return s.dir*(va-vb);if(va==null&&vb==null)return 0;if(va==null)return s.dir;if(vb==null)return-s.dir;if(typeof va==='number'&&typeof vb==='number')return s.dir*(va-vb);return s.dir*String(va).localeCompare(String(vb))})}document.getElementById('loaTbcBadge').textContent=rows.length;if(!rows.length){document.getElementById('loaTbcBody').innerHTML='<tr class="empty-row"><td colspan="5"><span class="ei">✅</span>All packages have planned dates</td></tr>';return}document.getElementById('loaTbcBody').innerHTML=rows.map(d=>`<tr><td><span class="proj-dot" style="background:${PROJ_COLORS[d.project]||'#003B7A'};vertical-align:middle;margin-right:4px"></span><strong style="font-size:11px">${d.code}</strong></td><td style="color:var(--muted);font-size:11px;font-weight:700;text-align:center">${d.sl_no}</td><td class="wp-cell" title="${d.work_package}">${d.work_package}</td><td>${badge(d.status)}</td><td style="font-size:12px">${d.manager||'—'}</td></tr>`).join('')}
+function exportTableToExcel(tableId,filename){const tbl=document.getElementById(tableId);if(!tbl){toast('Table not found');return}const rows=[];const headerCells=[];const thead=tbl.querySelector('thead');if(thead){const hRows=thead.querySelectorAll('tr');if(hRows.length===1){hRows[0].querySelectorAll('th').forEach(th=>headerCells.push(th.innerText.trim().replace(/[⇅▲▼]/g,'').trim()))}else{const topCells=[];hRows[0].querySelectorAll('th').forEach(th=>{const txt=th.innerText.trim().replace(/[⇅▲▼]/g,'').trim();const cs=parseInt(th.getAttribute('colspan')||'1');const rs=parseInt(th.getAttribute('rowspan')||'1');if(rs>1){topCells.push(txt)}else{for(let i=0;i<cs;i++)topCells.push(i===0?txt:'')}});const subCells=[];if(hRows[1])hRows[1].querySelectorAll('th').forEach(th=>subCells.push(th.innerText.trim()));let si=0;topCells.forEach(t=>{if(t!=='')headerCells.push(t);else{headerCells.push(subCells[si]||'');si++}})}}rows.push(headerCells);tbl.querySelectorAll('tbody tr').forEach(tr=>{if(tr.classList.contains('empty-row'))return;const row=[];tr.querySelectorAll('td').forEach(td=>row.push(td.innerText.trim()));rows.push(row)});const csv=rows.map(r=>r.map(v=>{const s=String(v).replace(/"/g,'""');return/[,"\n]/.test(s)?`"${s}"`:s}).join(',')).join('\n');const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename+'_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);toast('✅ Exported — open in Excel')}
 </script>
 </body>
 </html>
