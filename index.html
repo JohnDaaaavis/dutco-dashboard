@@ -1866,12 +1866,7 @@ function exportTableToExcel(tableId, filename) {
   });
 
   // Convert to CSV and trigger download
-  const csv = rows.map(r => r.map(v => {
-    const s = String(v).replace(/"/g, '""');
-    return /[,"
-]/.test(s) ? `"${s}"` : s;
-  }).join(',')).join('
-');
+  const csv = rows.map(r => r.map(v => { const s = String(v).replace(/"/g,'""'); return (s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0) ? '"'+s+'"' : s; }).join(',')).join('\n');
 
   const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
